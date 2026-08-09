@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Emotion Detector</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css"/>
+
+    <style>
+        body {
+            background: #0f172a;
+            color: white;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            margin: 0;
+        }
+
+        h2, h3 {
+            color: #f8fafc;
+            text-align: center;
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column; /* Stack vertically (top and bottom) */
+            align-items: center;    /* Center them horizontally */
+            justify-content: center;
+            gap: 40px;
+            max-width: 1200px;
+            margin: 30px auto;
+        }
+
+        #video {
+            transform: scaleX(-1);
+            border-radius: 10px;
+            max-width: 100%;
+        }
+
+        img#preview, img#captured {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+
+        .img-wrapper {
+            width: 100%;
+            max-width: 300px;
+            min-height: 100px;
+            margin-top: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            width: 320px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            background: #38bdf8;
+            color: black;
+            cursor: pointer;
+            font-weight: bold;
+            flex: 1; /* Makes buttons equal width */
+        }
+
+        button:hover {
+            background: #0ea5e9;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        /* 🔥 Cropper Styling */
+        .cropper-modal { background: rgba(0, 0, 0, 0.8) !important; }
+        .cropper-view-box { border: 2px solid #FF7F50 !important; outline: none !important; }
+        .cropper-point { background-color: #00d4ff !important; width: 10px; height: 10px; }
+        .cropper-dashed { border: 1px dashed #ccc !important; }
+        .cropper-line { background-color: #ccc !important; }
+
+        /* Result Box Styling */
+        .result-box {
+            background: rgba(16, 185, 129, 0.1);
+            border: 2px solid #10b981;
+            padding: 20px;
+            border-radius: 12px;
+            width: 320px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+            margin-top: 10px;
+            animation: fadeIn 0.5s ease-out;
+        }
+        .result-box h3 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #d1d5db;
+        }
+        .prediction-val {
+            font-size: 32px;
+            font-weight: bold;
+            color: #34d399;
+            text-shadow: 0 0 10px rgba(52, 211, 153, 0.4);
+            margin-top: 10px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Intro Screen Styling */
+        .intro-container {
+            max-width: 900px;
+            margin: 40px auto;
+            text-align: center;
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .emotion-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+            margin-bottom: 30px;
+        }
+        .emotion-card {
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 10px;
+            width: 140px;
+            text-align: center;
+            border: 1px solid #334155;
+        }
+        .emotion-img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 10px;
+            border: 2px solid #38bdf8;
+        }
+        .btn-next {
+            background: #a855f7;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            width: auto;
+            min-width: 200px;
+        }
+        .btn-next:hover {
+            background: #9333ea;
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="intro-screen" class="intro-container">
+    <h2 style="font-size: 32px; color: #38bdf8;">Welcome to Emotion Detector!</h2>
+    <p style="font-size: 18px; line-height: 1.6; color: #cbd5e1; margin-bottom: 30px;">
+        <strong>Terms & Conditions:</strong> This model will predict your emotion! You can upload an image from your device or take a selfie to begin. 
+        <br><br>
+        <strong>Demo Predictions of all 7 Classes:</strong>
+    </p>
+
+    <div class="emotion-grid">
+        <div class="emotion-card">
+            <img src="{{ url_for('static', filename='assets/happy_face_1775795310199.png') }}" class="emotion-img" alt="Happy">
+            <strong>Happy 😄</strong>
+        </div>
+        <div class="emotion-card">
+            <img src="{{ url_for('static', filename='assets/sad_face_1775795326252.png') }}" class="emotion-img" alt="Sad">
+            <strong>Sad 😢</strong>
+        </div>
+        <div class="emotion-card">
+            <img src="{{ url_for('static', filename='assets/angry_face_1775795255722.png') }}" class="emotion-img" alt="Angry">
+            <strong>Angry 😠</strong>
+        </div>
+        <div class="emotion-card">
+            <img src="{{ url_for('static', filename='assets/surprise_face_1775795499113.png') }}" class="emotion-img" alt="Surprise">
+            <strong>Surprise 😲</strong>
+        </div>
+        <div class="emotion-card">
+            <img src="{{ url_for('static', filename='assets/fear_face_1775795294076.png') }}" class="emotion-img" alt="Fear">
+            <strong>Fear 😨</strong>
+        </div>
+        <div class="emotion-card">
+            <img src="{{ url_for('static', filename='assets/disgust_face_1775795269813.png') }}" class="emotion-img" alt="Disgust">
+            <strong>Disgust 🤢</strong>
+        </div>
+        <div class="emotion-card">
+            <img src="{{ url_for('static', filename='assets/neutral_face_1775795515041.png') }}" class="emotion-img" alt="Neutral">
+            <strong>Neutral 😐</strong>
+        </div>
+    </div>
+
+    <button type="button" class="btn-next" onclick="goToApp()">Next ➔</button>
+</div>
+
+<!-- Wrapped main app inside app-screen -->
+<div id="app-screen" style="display: none;">
+    <h2>Emotion Detector</h2>
+
+    <div class="main-container">
+
+        <!-- ================= UPLOAD ================= -->
+        <div class="card">
+            <h3>📸 Upload Image</h3>
+
+            <form method="POST" id="uploadForm" enctype="multipart/form-data">
+                <input type="file" id="fileInput" name="file" accept="image/*" style="width: 100%;">
+                <input type="hidden" name="image_data" id="uploadImageData">
+                
+                <div class="img-wrapper">
+                    <img id="preview" src="">
+                </div>
+                
+                <div class="button-group">
+                    <button type="submit">Predict Upload</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ================= CAMERA ================= -->
+        <div class="card">
+            <h3>🤳 Take Selfie</h3>
+
+            <video id="video" width="300" autoplay playsinline></video>
+            
+            <div class="button-group" style="margin-top: 10px;">
+                <button type="button" onclick="capture()" style="background: #a855f7; color: white;">Capture</button>
+            </div>
+
+            <canvas id="canvas" style="display:none;"></canvas>
+
+            <div class="img-wrapper">
+                <img id="captured" src="">
+            </div>
+
+            <form method="POST" id="cameraForm">
+                <input type="hidden" name="image_data" id="imageData">
+                
+                <div class="button-group">
+                    <button type="submit">Predict Camera</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ================= RESULT BOX ================= -->
+        <div class="result-box" id="resultBox" style="display: none;">
+            <h3>Emotion Predicted:</h3>
+            <div class="prediction-val">{{ prediction }}</div>
+        </div>
+
+    </div>
+
+</div> <!-- End of app-screen -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
+<script>
+let cropper;
+let stream;
+
+// ================= CAMERA =================
+async function startCamera() {
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        document.getElementById("video").srcObject = stream;
+    } catch (err) {
+        console.error("Camera error:", err);
+    }
+}
+startCamera();
+
+// ================= CAPTURE =================
+function capture() {
+    let video = document.getElementById("video");
+    let canvas = document.getElementById("canvas");
+    let img = document.getElementById("captured");
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    let ctx = canvas.getContext("2d");
+
+    // Mirror fix
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, 0, 0);
+
+    // Stop camera
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+
+    if (cropper) {
+        cropper.destroy();
+        cropper = null;
+    }
+    
+    img.onload = function() {
+        enableCrop('camera');
+    };
+
+    img.style.display = "block";
+    img.src = canvas.toDataURL("image/png", 1.0);
+}
+
+// ================= UPLOAD =================
+document.getElementById("fileInput").addEventListener("change", function(e) {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    let file = e.target.files[0];
+    let img = document.getElementById("preview");
+
+    if (cropper) {
+        cropper.destroy();
+        cropper = null;
+    }
+
+    img.onload = function() {
+        enableCrop('upload');
+    };
+
+    img.style.display = "block";
+    img.src = URL.createObjectURL(file);
+});
+
+// ================= ENABLE CROP FEATURE =================
+function enableCrop(type) {
+    let imgId = type === 'upload' ? 'preview' : 'captured';
+    let img = document.getElementById(imgId);
+
+    // Make sure the image is actually loaded
+    if (!img.src || img.src === window.location.href || img.src.includes("test.html")) {
+        return;
+    }
+
+    setTimeout(() => {
+        if (cropper) {
+            cropper.destroy();
+        }
+
+        try {
+            cropper = new Cropper(img, {
+                aspectRatio: NaN, 
+                viewMode: 1,
+                autoCropArea: 0.8,
+                responsive: true,
+                guides: true,
+                center: true,
+                highlight: true,
+                movable: true,
+                zoomable: true,
+                cropBoxMovable: true,
+                cropBoxResizable: true
+            });
+        } catch (err) {
+            console.error("Cropper error: ", err);
+        }
+    }, 50); 
+}
+
+// ================= ON SUBMIT FALLBACKS =================
+document.getElementById("uploadForm").addEventListener("submit", function() {
+    if (cropper && cropper.element.id === "preview") {
+        document.getElementById("uploadImageData").value = cropper.getCroppedCanvas().toDataURL("image/png");
+    }
+});
+
+document.getElementById("cameraForm").addEventListener("submit", function() {
+    if (cropper && cropper.element.id === "captured") {
+        document.getElementById("imageData").value = cropper.getCroppedCanvas().toDataURL("image/png");
+    }
+});
+
+// ================= TRANSITION LOGIC =================
+function goToApp() {
+    document.getElementById("intro-screen").style.display = "none";
+    document.getElementById("app-screen").style.display = "block";
+    window.scrollTo(0, 0); // Scroll to top
+}
+
+// Ensure the page respects Jinja rendering correctly:
+// If a backend reload happens and prediction was given, bypass the intro screen automatically.
+let predictionVal = "{{ prediction }}";
+if (predictionVal && predictionVal !== "None" && predictionVal !== "" && !predictionVal.includes("{" + "{")) {
+    document.addEventListener("DOMContentLoaded", function() {
+        document.getElementById("intro-screen").style.display = "none";
+        document.getElementById("app-screen").style.display = "block";
+        document.getElementById("resultBox").style.display = "block";
+    });
+}
+</script>
+
+</body>
+</html>
