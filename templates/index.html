@@ -185,7 +185,7 @@
 <div id="intro-screen" class="intro-container">
     <h2 style="font-size: 32px; color: #38bdf8;">Welcome to Emotion Detector!</h2>
     <p style="font-size: 18px; line-height: 1.6; color: #cbd5e1; margin-bottom: 30px;">
-        <strong>Terms & Conditions:</strong> This model will predict your emotion! You can upload an image from your device or take a selfie to begin. 
+        <strong>Terms & Conditions:</strong> This model will predict your emotion! You can upload only face image from your device or take a selfie to begin. 
         <br><br>
         <strong>Demo Predictions of all 7 Classes:</strong>
     </p>
@@ -286,137 +286,418 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
 <script>
-let cropper;
-let stream;
+let cropper = null;
+let stream = null;
 
-// ================= CAMERA =================
+// ======================================================
+// CAMERA
+// ======================================================
 async function startCamera() {
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        document.getElementById("video").srcObject = stream;
-    } catch (err) {
-        console.error("Camera error:", err);
-    }
-}
-startCamera();
 
-// ================= CAPTURE =================
-function capture() {
-    let video = document.getElementById("video");
-    let canvas = document.getElementById("canvas");
-    let img = document.getElementById("captured");
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    let ctx = canvas.getContext("2d");
-
-    // Mirror fix
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0);
-
-    // Stop camera
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-    }
-
-    if (cropper) {
-        cropper.destroy();
-        cropper = null;
-    }
-    
-    img.onload = function() {
-        enableCrop('camera');
-    };
-
-    img.style.display = "block";
-    img.src = canvas.toDataURL("image/png", 1.0);
-}
-
-// ================= UPLOAD =================
-document.getElementById("fileInput").addEventListener("change", function(e) {
-    if (!e.target.files || e.target.files.length === 0) return;
-    
-    let file = e.target.files[0];
-    let img = document.getElementById("preview");
-
-    if (cropper) {
-        cropper.destroy();
-        cropper = null;
-    }
-
-    img.onload = function() {
-        enableCrop('upload');
-    };
-
-    img.style.display = "block";
-    img.src = URL.createObjectURL(file);
-});
-
-// ================= ENABLE CROP FEATURE =================
-function enableCrop(type) {
-    let imgId = type === 'upload' ? 'preview' : 'captured';
-    let img = document.getElementById(imgId);
-
-    // Make sure the image is actually loaded
-    if (!img.src || img.src === window.location.href || img.src.includes("test.html")) {
+    // Don't start another camera stream if one is already running
+    if (stream && stream.active) {
         return;
     }
 
-    setTimeout(() => {
-        if (cropper) {
-            cropper.destroy();
+    try {
+
+        const video = document.getElementById("video");
+
+        if (!video) {
+            console.error("Video element not found.");
+            return;
         }
 
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+        });
+
+        video.srcObject = stream;
+
+    } catch (err) {
+
+        console.error("Camera error:", err);
+
+    }
+}
+
+
+// ======================================================
+// STOP CAMERA
+// ======================================================
+function stopCamera() {
+
+    if (stream) {
+
+        stream.getTracks().forEach(function(track) {
+            track.stop();
+        });
+
+        stream = null;
+    }
+
+    const video = document.getElementById("video");
+
+    if (video) {
+        video.srcObject = null;
+    }
+}
+
+
+// ======================================================
+// CAPTURE SELFIE
+// ======================================================
+function capture() {
+
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const img = document.getElementById("captured");
+
+    if (!video || !canvas || !img) {
+        console.error("Camera elements not found.");
+        return;
+    }
+
+    // Make sure camera has started
+    if (!video.videoWidth || !video.videoHeight) {
+
+        alert("Camera is not ready yet. Please wait a moment and try again.");
+
+        return;
+    }
+
+    // Set canvas size according to camera resolution
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+
+    // Clear previous canvas content
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Mirror image horizontally
+    ctx.save();
+
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-1, 1);
+
+    ctx.drawImage(
+        video,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    ctx.restore();
+
+
+    // Stop camera after capturing
+    stopCamera();
+
+
+    // Destroy previous cropper
+    if (cropper) {
+
+        cropper.destroy();
+        cropper = null;
+    }
+
+
+    // Enable cropper after image loads
+    img.onload = function() {
+
+        enableCrop("camera");
+
+    };
+
+
+    img.style.display = "block";
+
+    img.src = canvas.toDataURL(
+        "image/png",
+        1.0
+    );
+}
+
+
+// ======================================================
+// UPLOAD IMAGE
+// ======================================================
+document.getElementById("fileInput").addEventListener("change", function(e) {
+
+    if (!e.target.files || e.target.files.length === 0) {
+        return;
+    }
+
+    const file = e.target.files[0];
+
+    const img = document.getElementById("preview");
+
+
+    // Destroy previous cropper
+    if (cropper) {
+
+        cropper.destroy();
+        cropper = null;
+    }
+
+
+    // Release previous temporary object URL
+    if (img.dataset.objectUrl) {
+
+        URL.revokeObjectURL(img.dataset.objectUrl);
+
+        delete img.dataset.objectUrl;
+    }
+
+
+    // Create temporary URL for uploaded image
+    const imageURL = URL.createObjectURL(file);
+
+    img.dataset.objectUrl = imageURL;
+
+
+    // Enable cropper after image loads
+    img.onload = function() {
+
+        enableCrop("upload");
+
+    };
+
+
+    img.style.display = "block";
+
+    img.src = imageURL;
+
+});
+
+
+// ======================================================
+// ENABLE CROPPER
+// ======================================================
+function enableCrop(type) {
+
+    const imgId =
+        type === "upload"
+            ? "preview"
+            : "captured";
+
+    const img = document.getElementById(imgId);
+
+
+    if (!img) {
+
+        console.error("Image element not found:", imgId);
+
+        return;
+    }
+
+
+    // Make sure image is loaded
+    if (
+        !img.src ||
+        img.src === window.location.href ||
+        img.src.includes("test.html")
+    ) {
+
+        return;
+    }
+
+
+    // Small delay to make sure browser has rendered image
+    setTimeout(function() {
+
+        // Destroy existing cropper
+        if (cropper) {
+
+            cropper.destroy();
+            cropper = null;
+        }
+
+
         try {
+
             cropper = new Cropper(img, {
-                aspectRatio: NaN, 
+
+                // Free crop ratio
+                aspectRatio: NaN,
+
+                // Keep crop box inside image
                 viewMode: 1,
+
+                // Initial crop area
                 autoCropArea: 0.8,
+
+                // Responsive
                 responsive: true,
+
+                // Cropper UI
                 guides: true,
                 center: true,
                 highlight: true,
+
+                // Image controls
                 movable: true,
                 zoomable: true,
+
+                // Crop box controls
                 cropBoxMovable: true,
                 cropBoxResizable: true
+
             });
+
         } catch (err) {
-            console.error("Cropper error: ", err);
+
+            console.error(
+                "Cropper error:",
+                err
+            );
+
         }
-    }, 50); 
+
+    }, 50);
 }
 
-// ================= ON SUBMIT FALLBACKS =================
-document.getElementById("uploadForm").addEventListener("submit", function() {
-    if (cropper && cropper.element.id === "preview") {
-        document.getElementById("uploadImageData").value = cropper.getCroppedCanvas().toDataURL("image/png");
-    }
-});
 
-document.getElementById("cameraForm").addEventListener("submit", function() {
-    if (cropper && cropper.element.id === "captured") {
-        document.getElementById("imageData").value = cropper.getCroppedCanvas().toDataURL("image/png");
-    }
-});
+// ======================================================
+// UPLOAD FORM SUBMIT
+// ======================================================
+document.getElementById("uploadForm").addEventListener(
+    "submit",
+    function() {
 
-// ================= TRANSITION LOGIC =================
+        if (
+            cropper &&
+            cropper.element &&
+            cropper.element.id === "preview"
+        ) {
+
+            const croppedCanvas =
+                cropper.getCroppedCanvas();
+
+            if (croppedCanvas) {
+
+                document.getElementById(
+                    "uploadImageData"
+                ).value =
+                    croppedCanvas.toDataURL(
+                        "image/png"
+                    );
+            }
+        }
+    }
+);
+
+
+// ======================================================
+// CAMERA FORM SUBMIT
+// ======================================================
+document.getElementById("cameraForm").addEventListener(
+    "submit",
+    function() {
+
+        if (
+            cropper &&
+            cropper.element &&
+            cropper.element.id === "captured"
+        ) {
+
+            const croppedCanvas =
+                cropper.getCroppedCanvas();
+
+            if (croppedCanvas) {
+
+                document.getElementById(
+                    "imageData"
+                ).value =
+                    croppedCanvas.toDataURL(
+                        "image/png"
+                    );
+            }
+        }
+    }
+);
+
+
+// ======================================================
+// TRANSITION: INTRO → APPLICATION
+// ======================================================
 function goToApp() {
-    document.getElementById("intro-screen").style.display = "none";
-    document.getElementById("app-screen").style.display = "block";
-    window.scrollTo(0, 0); // Scroll to top
+
+    const introScreen =
+        document.getElementById("intro-screen");
+
+    const appScreen =
+        document.getElementById("app-screen");
+
+
+    // Hide intro screen
+    introScreen.style.display = "none";
+
+
+    // Show application
+    appScreen.style.display = "block";
+
+
+    // Start camera ONLY after user enters the app
+    startCamera();
+
+
+    // Scroll to top
+    window.scrollTo(0, 0);
 }
 
-// Ensure the page respects Jinja rendering correctly:
-// If a backend reload happens and prediction was given, bypass the intro screen automatically.
-let predictionVal = "{{ prediction }}";
-if (predictionVal && predictionVal !== "None" && predictionVal !== "" && !predictionVal.includes("{" + "{")) {
-    document.addEventListener("DOMContentLoaded", function() {
-        document.getElementById("intro-screen").style.display = "none";
-        document.getElementById("app-screen").style.display = "block";
-        document.getElementById("resultBox").style.display = "block";
-    });
+
+// ======================================================
+// PREDICTION / BACKEND RELOAD HANDLING
+// ======================================================
+const predictionVal = "{{ prediction }}";
+
+
+if (
+    predictionVal &&
+    predictionVal !== "None" &&
+    predictionVal !== "" &&
+    !predictionVal.includes("{{")
+) {
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        function() {
+
+            const introScreen =
+                document.getElementById("intro-screen");
+
+            const appScreen =
+                document.getElementById("app-screen");
+
+            const resultBox =
+                document.getElementById("resultBox");
+
+
+            // Hide intro screen
+            introScreen.style.display = "none";
+
+
+            // Show application
+            appScreen.style.display = "block";
+
+
+            // Show prediction
+            resultBox.style.display = "block";
+
+
+            // Start camera after backend reload
+            startCamera();
+
+
+            // Scroll to top
+            window.scrollTo(0, 0);
+
+        }
+    );
 }
 </script>
 
