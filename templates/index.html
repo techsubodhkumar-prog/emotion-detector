@@ -650,55 +650,31 @@ function goToApp() {
 }
 
 
-// ======================================================
-// PREDICTION / BACKEND RELOAD HANDLING
-// ======================================================
-const predictionVal = "{{ prediction }}";
+// ================= PREDICTION HANDLING =================
 
+const predictionVal = {{ prediction|tojson }};
 
-if (
-    predictionVal &&
-    predictionVal !== "None" &&
-    predictionVal !== "" &&
-    !predictionVal.includes("{{")
-) {
+document.addEventListener("DOMContentLoaded", function() {
 
-    document.addEventListener(
-        "DOMContentLoaded",
-        function() {
+    if (
+        predictionVal !== null &&
+        predictionVal !== undefined &&
+        predictionVal !== ""
+    ) {
 
-            const introScreen =
-                document.getElementById("intro-screen");
+        document.getElementById("intro-screen").style.display = "none";
 
-            const appScreen =
-                document.getElementById("app-screen");
+        document.getElementById("app-screen").style.display = "block";
 
-            const resultBox =
-                document.getElementById("resultBox");
+        document.getElementById("resultBox").style.display = "block";
 
+        // Start camera after backend reload
+        startCamera();
 
-            // Hide intro screen
-            introScreen.style.display = "none";
+        window.scrollTo(0, 0);
+    }
 
-
-            // Show application
-            appScreen.style.display = "block";
-
-
-            // Show prediction
-            resultBox.style.display = "block";
-
-
-            // Start camera after backend reload
-            startCamera();
-
-
-            // Scroll to top
-            window.scrollTo(0, 0);
-
-        }
-    );
-}
+});
 </script>
 
 </body>
